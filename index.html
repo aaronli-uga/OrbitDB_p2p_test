@@ -53,7 +53,7 @@
 
 
     <script>
-      const dbAddress = 'Qmhhh' //hard coded for testing 
+      const dbAddress = '/orbitdb/zdpuAynJFDBA4rgYWoKqv4m9pKa1Xp5xQSDsuetX3avsetmqW/testdb' //hard coded for testing 
       // This function executes when the page has finished loading.
       $(document).ready(function() {
         console.log("page is ready")
@@ -97,20 +97,23 @@
           // don't load the latest from the network yet
           localOnly: false,
           type: 'keyvalue',
-          write: ['*'],
+          accessController:{
+            admin: ['*'],
+            write: ['*']
+          }
         });
-        
+        // db = await orbitdb.open(dbAddress)
 
-        // db = await orbitdb.open(dbAddress, {
-        //   // If database doesn't exist, create it
-        //   create: true,
-        //   overwrite: true,
-        //   // Load only the local version of the database,
-        //   // don't load the latest from the network yet
-        //   localOnly: false,
-        //   type: 'keyvalue',
-        //   write: ['*'],
-        // });
+        db.events.on('ready', () => {
+          console.log("OrbitDB is ready!")
+        })
+
+        await db.load();
+        
+        // React when the database is updated.
+        db.events.on('replicated', (address) => {
+            console.log(`Database replicated with peer ${address}. Check for new data.`)
+        })
 
         } catch(err){
           console.error(`Error in loading IPFS: `, err)

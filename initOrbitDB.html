@@ -97,6 +97,9 @@
         document.getElementById("dbaddress").innerHTML = dbAddress;
         console.log(`database string: ${dbAddress}`)
 
+        //put some initial data
+        await db.put('hello', {name: 'World'})
+
         // React when the database is updated.
         db.events.on('replicated', () => {
             console.log("Database replicated. Check for new prices.")
