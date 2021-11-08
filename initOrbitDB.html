@@ -89,12 +89,14 @@
 
         const orbitdb = await OrbitDB.createInstance(ipfs);
 
-        const access = {
-            // Give write accessto everyone
-            write: ['*'],
+        const options = {
+          // Give write accessto everyone
+          accessController:{
+            write: ['*']
+          }
         }
 
-        db = await orbitdb.keyvalue('testdb', access)
+        db = await orbitdb.keyvalue('testdb', options)
         await db.load()
         let dbAddress = db.address.toString()
         document.getElementById("dbaddress").innerHTML = dbAddress;

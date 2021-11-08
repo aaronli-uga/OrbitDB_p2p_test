@@ -139,6 +139,7 @@
     <script>
       let dbAddress = ''
       let db;
+      let dbReady = false;
       // This function executes when the page has finished loading.
       $(document).ready(function() {
         console.log("page is ready")
@@ -170,6 +171,33 @@
         }
       }
 
+      async function validateDb(){
+        // Exit if DB is not ready.
+        console.log("dbReadyL", dbReady)
+        if(!dbReady) return false;  
+
+        // Retrieve data from the web forms.
+        const patient = $('#patientID').val();
+        if(patient === "") return false;
+        console.log("Patient,", patient)
+
+        // Get the list of peers
+        let peers = db.get('peers')
+        console.log("PEER:", peers);
+        // Handle a new DB.
+        if(!peers) {
+          peers = [patient]
+          await db.put('peers', peers);
+        } else{
+          if(peers.indexOf(patient) === -1){
+            // Add current patient to the list of peer
+            peers.push(patient);
+            await db.put('peers', peers);
+          }
+        }
+        return true;
+      }
+
       async function uploadInfo(){
         try{
           const name = $('#name').val();
@@ -178,6 +206,11 @@
           let email = $('#email').val();
 
           const patientID = $('#patientID').val();
+
+          // Exit if the DB can not be validated.
+          const dbIsValid = await validateDb();
+          if(!dbIsValid) return;
+
           const patientInfo = {
             name: name,
             gender: gender,
@@ -301,6 +334,7 @@
         })
 
         await db.load();
+        dbReady = true;
         
         // React when the database is updated.
         db.events.on('replicated', (address) => {
