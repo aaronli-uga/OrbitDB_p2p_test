@@ -101,7 +101,9 @@
         console.log(`database string: ${dbAddress}`)
 
         //put some initial data
-        await db.put('hello', {name: 'World'})
+        await db.put('peers', ['1', '2'])
+        await db.put('1', {name: 'Tom Laner', gender: 'Male', age: 20, email: 'tl@gmail.com'})
+        await db.put('2', {name: 'Jerry White', gender: 'Male', age: 30, email: 'jw@gmail.com'})
 
         // React when the database is updated.
         db.events.on('replicated', () => {

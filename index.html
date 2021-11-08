@@ -49,17 +49,206 @@
       </header>
       <h1>Test of the orbitdb node</h1>
 
+      <div class="container">
+        <form class="form-inline">
+          <div class="form-group">
+            <label for="dbAddress">OrbitDB address </label>
+            <input type="text" class="form-control input-lg" id="dbAddress" value="">
+          </div>
+          <button type="button" class="btn btn-primary" onclick="connectDB()">Connect database</button>
+        </form>
+      </div>
+      
+      <hr>
+
+      <div class="container">
+        <div class="row">
+          <div class="col-sm-12">
+            <form class="form-inline">
+              <div class="form-group">
+                <label for="patientID">Patient ID </label>
+                <input type="text" class="form-control" id="patientID" value="">
+                <!-- <button type="button" class="btn btn-default">Login Handle</button> -->
+              </div>
+            </form>
+          </div>
+        </div>
+    
+        <div class="row">
+          <div class="col-sm-12">
+            <form class="form-inline">
+              <div class="form-group">
+                <label for="name">Name</label>
+                <input type="text" class="form-control" id="name" placeholder="">
+              </div>
+
+              <div class="form-group">
+                <label for="gender">Gender</label>
+                <select id="gender">
+                  <option value="Male">Male</option>
+                  <option value="Femal">Femal</option>
+                </select>
+              </div>
+    
+              <div class="form-group">
+                <label for="age">Age</label>
+                <input type="number" class="form-control" id="age" placeholder="">
+              </div>
+    
+              <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" class="form-control" id="email" placeholder="">
+              </div>
+    
+              <button type="button" class="btn btn-primary" onclick="uploadInfo()">Upload</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <hr>
+
+      <div class="container">
+        <div class="row">
+          <div class="col-sm-12">
+            <h4>Patient EHR table</h4>
+            <table class="table table-striped" id="patientTable">
+              <tr id="trHeader">
+                <th>Patient ID</th>
+                <th>Name</th>
+                <th>Gender</th>
+                <th>Age</th>
+                <th>Email</th>
+              </tr>
+              <tr id="trScaffold">
+                <td class="tdPatientID"></td>
+                <td class="tdName"></td>
+                <td class="tdGender"></td>
+                <td class="tdAge"></td>
+                <td class="tdEmail"></td>
+                <!-- <td class="tdCancel"><button type="button" class="btn btn-default" style="display: none;">Cancel</button></td> -->
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+
 
 
 
     <script>
-      const dbAddress = '/orbitdb/zdpuAsLhzTPQyEmdYUafmsPogihrmxaqzESarRGAveizjMXnq/testdb' //hard coded for testing 
+      let dbAddress = ''
+      let db;
       // This function executes when the page has finished loading.
       $(document).ready(function() {
         console.log("page is ready")
         // Load IPFS and OrbitDB
-        loadIPFS();
+        // loadIPFS();
       });
+
+      function connectDB(){
+        dbAddress = document.getElementById("dbAddress").value;
+        loadIPFS()
+      }
+
+      // This function resets the order book table to the way it was when the DOM
+      // was first loaded.
+      function resetTable() {
+        console.log('resetting the table.');
+        const patientTable = $('#patientTable');
+        const allRows = patientTable.find('tr');
+
+        // Loop through each row in the table.
+        for(var i=0; i < allRows.length; i++) {
+          const thisRow = $(allRows[i]);
+          const thisRowsId = thisRow.prop('id');
+
+          if(thisRowsId === "trHeader") continue;
+          if(thisRowsId === "trScaffold") continue;
+
+          thisRow.remove();
+        }
+      }
+
+      async function uploadInfo(){
+        try{
+          const name = $('#name').val();
+          const gender = $('#gender').val();
+          let age = $('#age').val();
+          let email = $('#email').val();
+
+          const patientID = $('#patientID').val();
+          const patientInfo = {
+            name: name,
+            gender: gender,
+            age: age,
+            email: email
+          }
+
+          await db.put(patientID, patientInfo)
+          console.log('Info has been added to OrbitDB!')
+
+          resetTable();
+          showTable();
+
+        } catch(err) {
+          console.error(`Error in uploading infomation: `, err);
+          throw err;
+        }
+      }
+
+      async function showTable() {
+        try {
+          //console.log('showing patient table');
+
+          // Exit if the DB can not be validated.
+          // const dbIsValid = await validateDb();
+          // if(!dbIsValid) return;
+
+          // Get the list of peers.
+          let peers = db.get('peers')
+          // console.log("peers:", peers);
+          if(!peers) return; // Exit if DB has not peers.
+
+          const myID = $('#patientID').val();
+
+          // Get orders for each peer.
+          for(var i = 0; i < peers.length; i++) {
+            const thisPeer = peers[i]
+
+            let patient = db.get(String(thisPeer))
+            if(!patient) patient = [];
+
+            //console.log(`Order belonging to ${thisPeer}: ${JSON.stringify(orders)}`)
+            // console.log("patientid!", Object.keys(patient).length)
+            // Loop through each order.
+            // for(var j=0; j < Object.keys(patient).length; j++) {
+            //   const thisPatient = patient[j];
+              const thisRow = $('#trScaffold').clone();
+              thisRow.prop('id', ''); // Remove the ID from the clone.
+
+              thisRow.find('.tdPatientID').text(thisPeer);
+              
+              thisRow.find('.tdName').text(patient.name)
+              
+              if(patient.gender)
+                thisRow.find('.tdGender').text('Male')
+              else
+                thisRow.find('.tdGender').text('Female')
+
+              thisRow.find('.tdAge').text(patient.age)
+
+              thisRow.find('.tdEmail').text(patient.email)
+
+              $('#patientTable').append(thisRow)
+            // }
+          }
+
+        } catch(err) {
+          console.error(`Error in showOrders(): `, err);
+          throw err;
+        }
+      }
 
       async function loadIPFS(){
         try{
@@ -115,7 +304,10 @@
         
         // React when the database is updated.
         db.events.on('replicated', (address) => {
-            console.log(`Database replicated with peer ${address}. Check for new data.`)
+          console.log(`Database replicated with peer ${address}. Check for new data.`);
+          resetTable();
+          showTable();
+
         })
 
         } catch(err){
