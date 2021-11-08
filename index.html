@@ -335,6 +335,8 @@
 
         await db.load();
         dbReady = true;
+        resetTable();
+        showTable();
         
         // React when the database is updated.
         db.events.on('replicated', (address) => {
