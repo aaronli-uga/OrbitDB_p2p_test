@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="end">
 <head>
-    <title>OrbitDB duplication test</title>
+    <title>OrbitDB Sync test</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
@@ -47,9 +47,9 @@
           </div>
         </nav>
       </header>
-      <h1>Test of the orbitdb node</h1>
 
       <div class="container">
+        <h1>Test of the orbitdb node</h1>
         <form class="form-inline">
           <div class="form-group">
             <label for="dbAddress">OrbitDB address </label>
@@ -119,6 +119,7 @@
                 <th>Gender</th>
                 <th>Age</th>
                 <th>Email</th>
+                <th>Delete</th>
               </tr>
               <tr id="trScaffold">
                 <td class="tdPatientID"></td>
@@ -126,6 +127,7 @@
                 <td class="tdGender"></td>
                 <td class="tdAge"></td>
                 <td class="tdEmail"></td>
+                <td class="tdDelete"><button type="button" class="btn btn-warning" style="display: none;">Delete</button></td>
                 <!-- <td class="tdCancel"><button type="button" class="btn btn-default" style="display: none;">Cancel</button></td> -->
               </tr>
             </table>
@@ -152,7 +154,7 @@
         loadIPFS()
       }
 
-      // This function resets the order book table to the way it was when the DOM
+      // This function resets the patient table to the way it was when the DOM
       // was first loaded.
       function resetTable() {
         console.log('resetting the table.');
@@ -230,6 +232,18 @@
         }
       }
 
+      async function deleteInfo(event) {
+        const thisBtn = $(this);
+        const handle = thisBtn.prop('data-handle');
+        var peerlist = db.get('peers');
+        // remove the handle from the peer list
+        peerlist = peerlist.filter(item => item !== handle);
+        await db.put('peers', peerlist)
+        await db.del(handle);
+        resetTable();
+        showTable();
+      }
+
       async function showTable() {
         try {
           //console.log('showing patient table');
@@ -245,16 +259,16 @@
 
           const myID = $('#patientID').val();
 
-          // Get orders for each peer.
+          // Get info for each peer.
           for(var i = 0; i < peers.length; i++) {
             const thisPeer = peers[i]
 
             let patient = db.get(String(thisPeer))
             if(!patient) patient = [];
 
-            //console.log(`Order belonging to ${thisPeer}: ${JSON.stringify(orders)}`)
+            //console.log(`Info belonging to ${thisPeer}: ${JSON.stringify(patient)}`)
             // console.log("patientid!", Object.keys(patient).length)
-            // Loop through each order.
+            // Loop through each patient.
             // for(var j=0; j < Object.keys(patient).length; j++) {
             //   const thisPatient = patient[j];
               const thisRow = $('#trScaffold').clone();
@@ -273,12 +287,18 @@
 
               thisRow.find('.tdEmail').text(patient.email)
 
+              // set up the delete button for every record
+              const deleteButton = thisRow.find('.tdDelete').find('button')
+              deleteButton.show();
+              deleteButton.prop('data-handle', thisPeer)
+              deleteButton.click(deleteInfo);
+              
               $('#patientTable').append(thisRow)
             // }
           }
 
         } catch(err) {
-          console.error(`Error in showOrders(): `, err);
+          console.error(`Error in showTable(): `, err);
           throw err;
         }
       }
