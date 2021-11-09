@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="end">
 <head>
-    <title>OrbitDB Sync test</title>
+    <title>Zero-Trust Health Data Fabric on Web 3.0</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
@@ -43,19 +43,28 @@
       <header class='navbar navbar-default navbar-fixed-top'>
         <nav class='container' role='navigation'>
           <div class='navbar-header'>
-            <a href='index.html' class='navbar-brand'>OrbitDB peer test</a>
+            <a href='index.html' class='navbar-brand'>Zero-Trust Health Data Fabric on Web 3.0</a>
           </div>
         </nav>
       </header>
 
       <div class='container'>
-        <h1>Initiate the OrbitDB node and give the address</h1>
-        <h4>The orbitDB address is <span id="initdbaddress"></span></h4>
+        <h2>Create your own OrbitDB database</h2>
+        <!-- <h4>The orbitDB address is <span id="initdbaddress"></span></h4> -->
+        <form class="form">
+          <div class="form-group">
+            <label for="createdAddress">OrbitDB address </label>
+            <input type="text" class="form-control input-large" id="createdAddress" value="" disabled>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="InitOrbitDB()">Create database</button>
+        </form>
       </div>
 
+      <hr>
+
       <div class="container">
-        <h1>Test of the orbitdb node</h1>
-        <form class="form-inline">
+        <h2>Connect to a remote OrbitDB database</h2>
+        <form class="form">
           <div class="form-group">
             <label for="dbAddress">OrbitDB address </label>
             <input type="text" class="form-control input-lg" id="dbAddress" value="">
@@ -69,7 +78,7 @@
       <div class="container">
         <div class="row">
           <div class="col-sm-12">
-            <form class="form-inline">
+            <form class="form-group mb-2">
               <div class="form-group">
                 <label for="patientID">Patient ID </label>
                 <input type="text" class="form-control" id="patientID" value="">
@@ -81,7 +90,7 @@
     
         <div class="row">
           <div class="col-sm-12">
-            <form class="form-inline">
+            <form class="form-group">
               <div class="form-group">
                 <label for="name">Name</label>
                 <input type="text" class="form-control" id="name" placeholder="">
@@ -152,7 +161,7 @@
         console.log("page is ready")
         // Load IPFS and OrbitDB
         // loadIPFS();
-        InitOrbitDB();
+        // InitOrbitDB();
       });
 
       function connectDB(){
@@ -164,7 +173,7 @@
       async function InitOrbitDB(){
         try{
 
-          ipfs = await Ipfs.create({
+          ipfs1 = await Ipfs.create({
             repo: 'dbOwner' + Math.random(), //random so we get a new peerid every time, useful for testing
             start: true,
             EXPERIMENTAL: {
@@ -191,7 +200,7 @@
         
         console.log("IPFS is ready, initialize OrbitDB")
 
-        const orbitdb = await OrbitDB.createInstance(ipfs);
+        const orbitdb = await OrbitDB.createInstance(ipfs1);
 
         const options = {
           // Give write accessto everyone
@@ -204,7 +213,8 @@
         await db0.load()
         let initdbAddress = db0.address.toString()
         console.log(initdbAddress)
-        document.getElementById("initdbaddress").innerHTML = initdbAddress;
+        // document.getElementById("initdbaddress").innerHTML = initdbAddress;
+        $('#createdAddress').val(initdbAddress);
         console.log(`database string: ${initdbAddress}`)
 
         //put some initial data
@@ -374,7 +384,7 @@
       async function loadIPFS(){
         try{
 
-          ipfs = await Ipfs.create({
+          ipfs2 = await Ipfs.create({
             repo: 'ipfs-' + Math.random(), //random so we get a new peerid every time, useful for testing
             start: true,
             EXPERIMENTAL: {
@@ -401,7 +411,7 @@
         
         console.log(`IPFS is ready...Connecting to DB ${dbAddress} waiting...`)
 
-        orbitdb = await OrbitDB.createInstance(ipfs);
+        orbitdb = await OrbitDB.createInstance(ipfs2);
         db = await orbitdb.open(dbAddress, {
           // If database doesn't exist, create it
           create: true,
