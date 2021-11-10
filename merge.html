@@ -49,9 +49,8 @@
         </nav>
       </header>
 
-      <div class='container'>
+      <!-- <div class='container'>
         <h2>Create your own OrbitDB database</h2>
-        <!-- <h4>The orbitDB address is <span id="initdbaddress"></span></h4> -->
         <form class="form">
           <div class="form-group">
             <label for="createdAddress">OrbitDB address </label>
@@ -59,9 +58,7 @@
           </div>
           <button type="button" class="btn btn-primary" onclick="InitOrbitDB()">Create database</button>
         </form>
-      </div>
-
-      <hr>
+      </div> -->
 
       <div class="container">
         <h2>Connect to a remote OrbitDB database</h2>
@@ -71,6 +68,7 @@
             <input type="text" class="form-control input-lg" id="dbAddress" value="">
           </div>
           <button type="button" class="btn btn-primary" onclick="connectDB()">Connect database</button>
+          <button type="button" class="btn btn-primary" onclick="InitOrbitDB()">Create database</button>
         </form>
       </div>
       
@@ -79,21 +77,56 @@
       <div class="container">
         <div class="row">
           <div class="col-sm-12">
-            <form class="form-group mb-2">
-              <div class="form-group">
-                <label for="patientID">Patient ID </label>
-                <input type="text" class="form-control" id="patientID" value="">
+            <form class="form-group">
+              <div class="row">
+                <div class="col">
+                  <label for="patientID">Patient ID </label>
+                  <input type="text" class="form-control" id="patientID" value="">
+                </div>
+                <div class="col">
+                  <label for="name">Name</label>
+                  <input type="text" class="form-control" id="name" placeholder="">
+                </div>
+                <div class="col">
+                  <label for="age">Age</label>
+                  <input type="number" class="form-control" id="age" placeholder="">
+                </div>
+                <div class="col">
+                  <label for="gender">Gender</label>
+                  <select class="browser-default custom-select" id="gender">
+                    <option value="Male">Male</option>
+                    <option value="Femal">Female</option>
+                  </select>
+                </div>
+                
+               
                 <!-- <button type="button" class="btn btn-default">Login Handle</button> -->
               </div>
             </form>
           </div>
         </div>
     
-        <div class="row">
+        <!-- <div class="row">
           <div class="col-sm-12">
             <form class="form-group">
+              <div class="row">
+                <div class="col">
+                  <label for="name">Name</label>
+                  <input type="text" class="form-control" id="name" placeholder="">
+                </div>
+                <div class="col">
+                  <label for="name">heeee</label>
+                  <input type="text" class="form-control" id="name" placeholder="">
+                </div>
+                <div class="col">
+                  <label for="name">heeee</label>
+                  <input type="text" class="form-control" id="name" placeholder="">
+                </div>
+              </div>
               <div class="form-group">
                 <label for="name">Name</label>
+                <input type="text" class="form-control" id="name" placeholder="">
+                <label for="name">Hiloo</label>
                 <input type="text" class="form-control" id="name" placeholder="">
               </div>
 
@@ -108,7 +141,7 @@
               <div class="form-group">
                 <label for="age">Age</label>
                 <input type="number" class="form-control" id="age" placeholder="">
-              </div>
+              </div> -->
     
               <div class="form-group">
                 <label for="email">Email</label>
@@ -215,7 +248,7 @@
         let initdbAddress = db0.address.toString()
         console.log(initdbAddress)
         // document.getElementById("initdbaddress").innerHTML = initdbAddress;
-        $('#createdAddress').val(initdbAddress);
+        $('#dbAddress').val(initdbAddress);
         console.log(`database string: ${initdbAddress}`)
 
         //put some initial data
