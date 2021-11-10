@@ -142,10 +142,23 @@
                 <label for="age">Age</label>
                 <input type="number" class="form-control" id="age" placeholder="">
               </div> -->
-    
+              
               <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" class="form-control" id="email" placeholder="">
+                <div class="row">
+                  <div class="col">
+                    <label for="email">Email</label>
+                    <input type="email" class="form-control" id="email" placeholder="">
+                  </div>
+                  <div class="col">
+                    <label htmlFor="EHR" class="form-label">Medical record upload</label>
+                    <input 
+                      type="file" 
+                      class="form-control"
+                      onChange={uploadIPFS}
+                    />
+                  </div>
+                </div>
+                
               </div>
     
               <button type="button" class="btn btn-primary" onclick="uploadInfo()">Upload</button>
