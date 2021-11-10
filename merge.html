@@ -249,17 +249,23 @@
 
         const orbitdb = await OrbitDB.createInstance(ipfs1);
 
-        const options = {
-          // Give write accessto everyone
-          accessController:{
-            write: ['*']
-          }
-        }
+        // const options = {
+        //   // Give write accessto everyone
+        //   accessController:{
+        //     write: ['*']
+        //   }
+        // }
 
-        db0 = await orbitdb.keyvalue('testdb', options)
+        // db0 = await orbitdb.keyvalue('testdb', options)
+        db0 = await orbitdb.keyvalue('newdb', {
+          accessController: {
+            type: 'orbitdb',
+            write:['*']
+          }
+        })
         await db0.load()
         let initdbAddress = db0.address.toString()
-        console.log(initdbAddress)
+        console.log("init address:", initdbAddress)
         // document.getElementById("initdbaddress").innerHTML = initdbAddress;
         $('#dbAddress').val(initdbAddress);
         console.log(`database string: ${initdbAddress}`)
