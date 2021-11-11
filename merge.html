@@ -5,6 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ipfs/0.55.4/index.min.js" integrity="sha512-RCw5an1zlO8sX9mf7p4xfsuy1G/nmF4Qottp0i2GVl74/A8MTGSjrEgLtbiXeTD07cu8gQw4pSv4qDJGVBJ2WA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://unpkg.com/orbit-db@0.26.1/dist/orbitdb.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
@@ -265,7 +266,6 @@
         })
         await db0.load()
         let initdbAddress = db0.address.toString()
-        console.log("init address:", initdbAddress)
         // document.getElementById("initdbaddress").innerHTML = initdbAddress;
         $('#dbAddress').val(initdbAddress);
         console.log(`database string: ${initdbAddress}`)
@@ -277,7 +277,7 @@
 
         // React when the database is updated.
         db0.events.on('replicated', () => {
-            console.log("Database replicated. Check for new prices.")
+            console.log("Database replicated. Check for new data.")
         })
 
         } catch(err){
@@ -306,17 +306,14 @@
 
       async function validateDb(){
         // Exit if DB is not ready.
-        console.log("dbReadyL", dbReady)
         if(!dbReady) return false;  
 
         // Retrieve data from the web forms.
         const patient = $('#patientID').val();
         if(patient === "") return false;
-        console.log("Patient,", patient)
 
         // Get the list of peers
         let peers = db.get('peers')
-        console.log("PEER:", peers);
         // Handle a new DB.
         if(!peers) {
           peers = [patient]
@@ -352,7 +349,6 @@
           }
 
           await db.put(patientID, patientInfo)
-          console.log('Info has been added to OrbitDB!')
 
           resetTable();
           showTable();
