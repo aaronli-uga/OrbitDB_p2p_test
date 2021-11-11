@@ -205,6 +205,7 @@
       let dbAddress = ''
       let db;
       let dbReady = false;
+      var lastBootstrap = 0; // used for tracking when we last attempted to bootstrap (likely to reconnect to a relay)
       // This function executes when the page has finished loading.
       $(document).ready(function() {
         console.log("page is ready")
@@ -216,6 +217,27 @@
       function connectDB(){
         dbAddress = document.getElementById("dbAddress").value;
         loadIPFS()
+      }
+
+      async function dobootstrap(reconnect, ipfs){
+        now = new Date().getTime();
+        if (now-lastBootstrap < 60000) { // don't try to bootstrap again if we just tried within the last 60 seconds
+				  return;
+			  }
+        lastBootstrap = now;
+        for (i in bootstraps) {
+          if (reconnect) {
+            try {
+              await ipfs.swarm.disconnect(bootstraps[i]);
+            } catch (e) {
+              console.log(e);
+            }
+          } else {
+            await ipfs.bootstrap.add(bootstraps[i]);
+          }
+          await ipfs.swarm.connect(bootstraps[i]);
+					console.log("show me the peers:", ipfs.swarm.peers())
+			  }
       }
 
 
@@ -245,6 +267,8 @@
           })
         
         console.log("IPFS is ready, initialize OrbitDB")
+
+				await dobootstrap(false, ipfs1);
 
         const orbitdb = await OrbitDB.createInstance(ipfs1);
 
@@ -453,6 +477,7 @@
             }
           })
         
+				await dobootstrap(false, ipfs2);
         console.log(`IPFS is ready...Connecting to DB ${dbAddress} waiting...`)
 
         orbitdb = await OrbitDB.createInstance(ipfs2);
