@@ -257,6 +257,10 @@
               }
             },
             config: {
+              Bootstrap: [
+                '/dns6/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt',
+                '/dns4/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt'
+              ],
               Addresses: {
                 Swarm: [ 
                   '/dns4/star.thedisco.zone/tcp/9090/wss/p2p-webrtc-star',
@@ -271,7 +275,7 @@
         
         console.log("IPFS is ready, initialize OrbitDB")
 
-				await dobootstrap(false, ipfs1);
+				// await dobootstrap(false, ipfs1);
 
         const orbitdb = await OrbitDB.createInstance(ipfs1);
 
@@ -471,6 +475,10 @@
               }
             },
             config: {
+              Bootstrap: [
+                '/dns6/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt',
+                '/dns4/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt'
+              ],
               Addresses: {
                 Swarm: [ 
                   '/dns4/star.thedisco.zone/tcp/9090/wss/p2p-webrtc-star',
@@ -483,7 +491,7 @@
             }
           })
         
-				await dobootstrap(false, ipfs2);
+				// await dobootstrap(false, ipfs2);
         console.log(`IPFS is ready...Connecting to DB ${dbAddress} waiting...`)
 
         orbitdb = await OrbitDB.createInstance(ipfs2);
