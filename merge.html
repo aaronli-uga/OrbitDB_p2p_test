@@ -4,11 +4,11 @@
   <title>Zero-Trust Health Data Fabric on Web 3.0</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ipfs/0.55.4/index.min.js" integrity="sha512-RCw5an1zlO8sX9mf7p4xfsuy1G/nmF4Qottp0i2GVl74/A8MTGSjrEgLtbiXeTD07cu8gQw4pSv4qDJGVBJ2WA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="https://unpkg.com/orbit-db@0.26.1/dist/orbitdb.min.js"></script>
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 
   <style>
   html {
@@ -83,12 +83,15 @@
 		}
 	}
 
+	async function testNode(ipfs){
+		console.log(await ipfs.id());
+	}
+
 
 	async function InitOrbitDB(){
 		try{
-			ipfs1 = await Ipfs.create({
+			ipfs0 = await Ipfs.create({
 				repo: 'dbOwner' + Math.random(), //random so we get a new peerid every time, useful for testing
-				start: true,
 				EXPERIMENTAL: {
 					pubsub: true,
 				},
@@ -99,10 +102,6 @@
 					}
 				},
 				config: {
-					Bootstrap: [
-						'/dns6/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt',
-						'/dns4/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt'
-					],
 					Addresses: {
 						Swarm: [ 
 							'/dns4/star.thedisco.zone/tcp/9090/wss/p2p-webrtc-star',
@@ -115,11 +114,13 @@
 				}
 			})
 		
-		console.log("IPFS is ready, initialize OrbitDB")
 
-		// await dobootstrap(false, ipfs1);
+		console.log("IPFS owner node is ready, initializing OrbitDB...")
 
-		const orbitdb = await OrbitDB.createInstance(ipfs1);
+		// add bootstraps for next time, and attempt connection just in case 
+		// await dobootstrap(false, ipfs0);
+
+		const orbitdb = await OrbitDB.createInstance(ipfs0);
 
 		// const options = {
 		//   // Give write accessto everyone
@@ -263,48 +264,36 @@
 
 				let patient = db.get(String(thisPeer))
 				if(!patient) patient = [];
-
-				//console.log(`Info belonging to ${thisPeer}: ${JSON.stringify(patient)}`)
-				// console.log("patientid!", Object.keys(patient).length)
-				// Loop through each patient.
-				// for(var j=0; j < Object.keys(patient).length; j++) {
-				//   const thisPatient = patient[j];
 					const thisRow = $('#trScaffold').clone();
 					thisRow.prop('id', ''); // Remove the ID from the clone.
-
 					thisRow.find('.tdPatientID').text(thisPeer);
-					
 					thisRow.find('.tdName').text(patient.name)
-					
+
 					if(patient.gender)
 						thisRow.find('.tdGender').text('Male')
 					else
 						thisRow.find('.tdGender').text('Female')
 
 					thisRow.find('.tdAge').text(patient.age)
-
 					thisRow.find('.tdEmail').text(patient.email)
-
 					// set up the delete button for every record
 					const deleteButton = thisRow.find('.tdDelete').find('button')
 					deleteButton.show();
 					deleteButton.prop('data-handle', thisPeer)
 					deleteButton.click(deleteInfo);
-					
 					$('#patientTable').append(thisRow)
-				// }
 			}
-
 		} catch(err) {
 			console.error(`Error in showTable(): `, err);
 			throw err;
 		}
 	}
 
+	// For request node to set up its IPFS node
 	async function loadIPFS(){
 		try{
 
-			ipfs2 = await Ipfs.create({
+			ipfs1 = await Ipfs.create({
 				repo: 'ipfs-' + Math.random(), //random so we get a new peerid every time, useful for testing
 				start: true,
 				EXPERIMENTAL: {
@@ -336,7 +325,7 @@
 		// await dobootstrap(false, ipfs2);
 		console.log(`IPFS is ready...Connecting to DB ${dbAddress} waiting...`)
 
-		orbitdb = await OrbitDB.createInstance(ipfs2);
+		orbitdb = await OrbitDB.createInstance(ipfs1);
 		db = await orbitdb.open(dbAddress, {
 			// If database doesn't exist, create it
 			create: true,
