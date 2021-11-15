@@ -1,540 +1,489 @@
 <!DOCTYPE html>
 <html lang="end">
 <head>
-    <title>Zero-Trust Health Data Fabric on Web 3.0</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ipfs/0.55.4/index.min.js" integrity="sha512-RCw5an1zlO8sX9mf7p4xfsuy1G/nmF4Qottp0i2GVl74/A8MTGSjrEgLtbiXeTD07cu8gQw4pSv4qDJGVBJ2WA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://unpkg.com/orbit-db@0.26.1/dist/orbitdb.min.js"></script>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <title>Zero-Trust Health Data Fabric on Web 3.0</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ipfs/0.55.4/index.min.js" integrity="sha512-RCw5an1zlO8sX9mf7p4xfsuy1G/nmF4Qottp0i2GVl74/A8MTGSjrEgLtbiXeTD07cu8gQw4pSv4qDJGVBJ2WA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/orbit-db@0.26.1/dist/orbitdb.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 
-    <style>
+  <style>
+  html {
+    height: 100%;
+    margin: 0;
+    overflow: auto;
+  }
+  body {
+    height: 100%;
+    margin: 0;
+    overflow: auto;
+    display: flex;
+    flex-flow: column;
+  }
 
-      html {
-        height: 100%;
-        margin: 0;
-        overflow: auto;
-      }
-      body {
-        height: 100%;
-        margin: 0;
-        overflow: auto;
-        display: flex;
-        flex-flow: column;
-      }
+  .container-fluid {
+    flex: 1 1 auto;
+    display: flex;
+    flex-flow: column;
+    padding: 0;
+    margin: 0;
+  }
+  .input-field {
+    height:2.1em;
+    margin-top:auto;
+    padding-left:0.1em;
+    padding-right:0.1em;
+  }
+  </style>
 
-      .container-fluid {
-        flex: 1 1 auto;
-        display: flex;
-        flex-flow: column;
-        padding: 0;
-        margin: 0;
-      }
-      .input-field {
-        height:2.1em;
-        margin-top:auto;
-        padding-left:0.1em;
-        padding-right:0.1em;
-      }
-    </style>
+	<script>
+	//circuit relay
+	const bootstraps = [ 
+		'/dns6/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt', 
+		'/dns4/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt'];
+	let dbAddress = ''
+	let db;
+	let dbReady = false;
+	var lastBootstrap = 0; // used for tracking when we last attempted to bootstrap (likely to reconnect to a relay)
+	var ipfs0; //IPFS node who creates the database.
+	var ipfs1; //IPFS node who tries to connect the database.
+
+	// This function executes when the page has finished loading.
+	$(document).ready(function() {
+		console.log("page is ready")
+	});
+
+	function connectDB(){
+		dbAddress = document.getElementById("dbAddress").value;
+		loadIPFS()
+	}
+
+	// If connect is true, it'll first attempt to disconnect from the bootstrap nodes.
+	async function dobootstrap(reconnect, ipfs){
+		now = new Date().getTime();
+		if (now-lastBootstrap < 60000) { // don't try to bootstrap again if we just tried within the last 60 seconds
+			return;
+		}
+		lastBootstrap = now;
+		for (i in bootstraps) {
+			if (reconnect) {
+				try {
+					await ipfs.swarm.disconnect(bootstraps[i]);
+				} catch (e) {
+					console.log(e);
+				}
+			} else {
+				await ipfs.bootstrap.add(bootstraps[i]);
+			}
+			await ipfs.swarm.connect(bootstraps[i]);
+			console.log("show me the peers:", ipfs.swarm.peers())
+		}
+	}
+
+
+	async function InitOrbitDB(){
+		try{
+			ipfs1 = await Ipfs.create({
+				repo: 'dbOwner' + Math.random(), //random so we get a new peerid every time, useful for testing
+				start: true,
+				EXPERIMENTAL: {
+					pubsub: true,
+				},
+				relay:{
+					enabled: true,
+					hop: {
+						enabled: true
+					}
+				},
+				config: {
+					Bootstrap: [
+						'/dns6/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt',
+						'/dns4/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt'
+					],
+					Addresses: {
+						Swarm: [ 
+							'/dns4/star.thedisco.zone/tcp/9090/wss/p2p-webrtc-star',
+							'/dns6/star.thedisco.zone/tcp/9090/wss/p2p-webrtc-star',
+							'/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star/',
+							'/dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star/',
+							'/dns4/webrtc-star.discovery.libp2p.io/tcp/443/wss/p2p-webrtc-star/'
+						]
+					},
+				}
+			})
+		
+		console.log("IPFS is ready, initialize OrbitDB")
+
+		// await dobootstrap(false, ipfs1);
+
+		const orbitdb = await OrbitDB.createInstance(ipfs1);
+
+		// const options = {
+		//   // Give write accessto everyone
+		//   accessController:{
+		//     write: ['*']
+		//   }
+		// }
+
+		// db0 = await orbitdb.keyvalue('testdb', options)
+		db0 = await orbitdb.keyvalue('newdb', {
+			accessController: {
+				type: 'orbitdb',
+				write:['*']
+			}
+		})
+		await db0.load()
+		let initdbAddress = db0.address.toString()
+		// document.getElementById("initdbaddress").innerHTML = initdbAddress;
+		$('#dbAddress').val(initdbAddress);
+		console.log(`database string: ${initdbAddress}`)
+
+		//put some initial data
+		await db0.put('peers', ['1', '2'])
+		await db0.put('1', {name: 'Tom Laner', gender: 'Male', age: 20, email: 'tl@gmail.com'})
+		await db0.put('2', {name: 'Jerry White', gender: 'Male', age: 30, email: 'jw@gmail.com'})
+
+		// React when the database is updated.
+		db0.events.on('replicated', () => {
+				console.log("Database replicated. Check for new data.")
+		})
+
+		} catch(err){
+			console.error(`Error in loading IPFS: `, err)
+		}
+	}
+
+	// This function resets the patient table to the way it was when the DOM
+	// was first loaded.
+	function resetTable() {
+		console.log('resetting the table.');
+		const patientTable = $('#patientTable');
+		const allRows = patientTable.find('tr');
+
+		// Loop through each row in the table.
+		for(var i=0; i < allRows.length; i++) {
+			const thisRow = $(allRows[i]);
+			const thisRowsId = thisRow.prop('id');
+
+			if(thisRowsId === "trHeader") continue;
+			if(thisRowsId === "trScaffold") continue;
+
+			thisRow.remove();
+		}
+	}
+
+	async function validateDb(){
+		// Exit if DB is not ready.
+		if(!dbReady) return false;  
+
+		// Retrieve data from the web forms.
+		const patient = $('#patientID').val();
+		if(patient === "") return false;
+
+		// Get the list of peers
+		let peers = db.get('peers')
+		// Handle a new DB.
+		if(!peers) {
+			peers = [patient]
+			await db.put('peers', peers);
+		} else{
+			if(peers.indexOf(patient) === -1){
+				// Add current patient to the list of peer
+				peers.push(patient);
+				await db.put('peers', peers);
+			}
+		}
+		return true;
+	}
+
+	async function uploadInfo(){
+		try{
+			const name = $('#name').val();
+			const gender = $('#gender').val();
+			let age = $('#age').val();
+			let email = $('#email').val();
+
+			const patientID = $('#patientID').val();
+
+			// Exit if the DB can not be validated.
+			const dbIsValid = await validateDb();
+			if(!dbIsValid) return;
+
+			const patientInfo = {
+				name: name,
+				gender: gender,
+				age: age,
+				email: email
+			}
+
+			await db.put(patientID, patientInfo)
+
+			resetTable();
+			showTable();
+
+		} catch(err) {
+			console.error(`Error in uploading infomation: `, err);
+			throw err;
+		}
+	}
+
+	async function deleteInfo(event) {
+		const thisBtn = $(this);
+		const handle = thisBtn.prop('data-handle');
+		var peerlist = db.get('peers');
+		// remove the handle from the peer list
+		peerlist = peerlist.filter(item => item !== handle);
+		await db.put('peers', peerlist)
+		await db.del(handle);
+		resetTable();
+		showTable();
+	}
+
+	async function showTable() {
+		try {
+			//console.log('showing patient table');
+
+			// Exit if the DB can not be validated.
+			// const dbIsValid = await validateDb();
+			// if(!dbIsValid) return;
+
+			// Get the list of peers.
+			let peers = db.get('peers')
+			// console.log("peers:", peers);
+			if(!peers) return; // Exit if DB has not peers.
+
+			const myID = $('#patientID').val();
+
+			// Get info for each peer.
+			for(var i = 0; i < peers.length; i++) {
+				const thisPeer = peers[i]
+
+				let patient = db.get(String(thisPeer))
+				if(!patient) patient = [];
+
+				//console.log(`Info belonging to ${thisPeer}: ${JSON.stringify(patient)}`)
+				// console.log("patientid!", Object.keys(patient).length)
+				// Loop through each patient.
+				// for(var j=0; j < Object.keys(patient).length; j++) {
+				//   const thisPatient = patient[j];
+					const thisRow = $('#trScaffold').clone();
+					thisRow.prop('id', ''); // Remove the ID from the clone.
+
+					thisRow.find('.tdPatientID').text(thisPeer);
+					
+					thisRow.find('.tdName').text(patient.name)
+					
+					if(patient.gender)
+						thisRow.find('.tdGender').text('Male')
+					else
+						thisRow.find('.tdGender').text('Female')
+
+					thisRow.find('.tdAge').text(patient.age)
+
+					thisRow.find('.tdEmail').text(patient.email)
+
+					// set up the delete button for every record
+					const deleteButton = thisRow.find('.tdDelete').find('button')
+					deleteButton.show();
+					deleteButton.prop('data-handle', thisPeer)
+					deleteButton.click(deleteInfo);
+					
+					$('#patientTable').append(thisRow)
+				// }
+			}
+
+		} catch(err) {
+			console.error(`Error in showTable(): `, err);
+			throw err;
+		}
+	}
+
+	async function loadIPFS(){
+		try{
+
+			ipfs2 = await Ipfs.create({
+				repo: 'ipfs-' + Math.random(), //random so we get a new peerid every time, useful for testing
+				start: true,
+				EXPERIMENTAL: {
+					pubsub: true,
+				},
+				relay:{
+					enabled: true,
+					hop: {
+						enabled: true
+					}
+				},
+				config: {
+					Bootstrap: [
+						'/dns6/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt',
+						'/dns4/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt'
+					],
+					Addresses: {
+						Swarm: [ 
+							'/dns4/star.thedisco.zone/tcp/9090/wss/p2p-webrtc-star',
+							'/dns6/star.thedisco.zone/tcp/9090/wss/p2p-webrtc-star',
+							'/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star/',
+							'/dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star/',
+							'/dns4/webrtc-star.discovery.libp2p.io/tcp/443/wss/p2p-webrtc-star/'
+						]
+					},
+				}
+			})
+		
+		// await dobootstrap(false, ipfs2);
+		console.log(`IPFS is ready...Connecting to DB ${dbAddress} waiting...`)
+
+		orbitdb = await OrbitDB.createInstance(ipfs2);
+		db = await orbitdb.open(dbAddress, {
+			// If database doesn't exist, create it
+			create: true,
+			overwrite: true,
+			// Load only the local version of the database,
+			// don't load the latest from the network yet
+			localOnly: false,
+			type: 'keyvalue',
+			accessController:{
+				admin: ['*'],
+				write: ['*']
+			}
+		});
+		// db = await orbitdb.open(dbAddress)
+
+		db.events.on('ready', () => {
+			console.log("OrbitDB is ready!")
+		})
+
+		await db.load();
+		dbReady = true;
+		resetTable();
+		showTable();
+		
+		// React when the database is updated.
+		db.events.on('replicated', (address) => {
+			console.log(`Database replicated with peer ${address}. Check for new data.`);
+			resetTable();
+			showTable();
+
+		})
+
+		} catch(err){
+			console.error(`Error in loading IPFS: `, err)
+		}
+	}
+
+	</script>
+</head>
 
     <!-- <body onload="onload();"> -->
-      <body>
-      <!-- <header class='navbar navbar-default navbar-fixed-top'>
-        <nav class='container' role='navigation'>
-          <div class='navbar-header'>
-            <a href='index.html' class='navbar-brand'>Zero-Trust Health Data Fabric on Web 3.0</a>
-          </div>
-        </nav>
-      </header> -->
-
-      <!-- <div class='container'>
-        <h2>Create your own OrbitDB database</h2>
-        <form class="form">
-          <div class="form-group">
-            <label for="createdAddress">OrbitDB address </label>
-            <input type="text" class="form-control input-large" id="createdAddress" value="" disabled>
-          </div>
-          <button type="button" class="btn btn-primary" onclick="InitOrbitDB()">Create database</button>
-        </form>
-      </div> -->
-
-      <div class="container">
-        <!-- <h2>Connect to a remote OrbitDB database</h2> -->
-        <form class="form">
-          <div class="form-group">
-            <label for="dbAddress">OrbitDB address </label>
-            <input type="text" class="form-control input-lg" id="dbAddress" value="">
-          </div>
-          <button type="button" class="btn btn-primary" onclick="connectDB()">Connect database</button>
-          <button type="button" class="btn btn-primary" onclick="InitOrbitDB()">Create database</button>
-        </form>
-      </div>
-      
-      <hr>
-
-      <div class="container">
-        <div class="row">
-          <div class="col-sm-12">
-            <form class="form-group">
-              <div class="row">
-                <div class="col">
-                  <label for="patientID"> ID </label>
-                  <input type="text" class="form-control" id="patientID" value="">
-                </div>
-                <div class="col">
-                  <label for="name">Name</label>
-                  <input type="text" class="form-control" id="name" placeholder="">
-                </div>
-                <div class="col">
-                  <label for="age">Age</label>
-                  <input type="number" class="form-control" id="age" placeholder="">
-                </div>
-                <div class="col">
-                  <label for="gender">Gender</label>
-                  <select class="browser-default custom-select" id="gender">
-                    <option value="Male">Male</option>
-                    <option value="Femal">Female</option>
-                  </select>
-                </div>
-                
-               
-                <!-- <button type="button" class="btn btn-default">Login Handle</button> -->
-              </div>
-            </form>
-          </div>
+<body>
+    <!-- <header class='navbar navbar-default navbar-fixed-top'>
+      <nav class='container' role='navigation'>
+        <div class='navbar-header'>
+          <a href='index.html' class='navbar-brand'>Zero-Trust Health Data Fabric on Web 3.0</a>
         </div>
-    
-        <!-- <div class="row">
-          <div class="col-sm-12">
-            <form class="form-group">
-              <div class="row">
-                <div class="col">
-                  <label for="name">Name</label>
-                  <input type="text" class="form-control" id="name" placeholder="">
-                </div>
-                <div class="col">
-                  <label for="name">heeee</label>
-                  <input type="text" class="form-control" id="name" placeholder="">
-                </div>
-                <div class="col">
-                  <label for="name">heeee</label>
-                  <input type="text" class="form-control" id="name" placeholder="">
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="name">Name</label>
-                <input type="text" class="form-control" id="name" placeholder="">
-                <label for="name">Hiloo</label>
-                <input type="text" class="form-control" id="name" placeholder="">
-              </div>
+      </nav>
+    </header> -->
 
-              <div class="form-group">
-                <label for="gender">Gender</label>
-                <select id="gender">
-                  <option value="Male">Male</option>
-                  <option value="Femal">Femal</option>
-                </select>
-              </div>
-    
-              <div class="form-group">
-                <label for="age">Age</label>
-                <input type="number" class="form-control" id="age" placeholder="">
-              </div> -->
-              
-              <div class="form-group">
-                <div class="row">
-                  <div class="col">
-                    <label for="email">Email</label>
-                    <input type="email" class="form-control" id="email" placeholder="">
-                  </div>
-                  <div class="col">
-                    <label htmlFor="EHR" class="form-label">Medical record upload</label>
-                    <input 
-                      type="file" 
-                      class="form-control"
-                      onChange={uploadIPFS}
-                    />
-                  </div>
-                </div>
-                
-              </div>
-    
-              <button type="button" class="btn btn-primary" onclick="uploadInfo()">Update</button>
-            </form>
-          </div>
+    <!-- <div class='container'>
+      <h2>Create your own OrbitDB database</h2>
+      <form class="form">
+        <div class="form-group">
+          <label for="createdAddress">OrbitDB address </label>
+          <input type="text" class="form-control input-large" id="createdAddress" value="" disabled>
         </div>
+        <button type="button" class="btn btn-primary" onclick="InitOrbitDB()">Create database</button>
+      </form>
+    </div> -->
+  <span id="status-ball" style="color:red;position:fixed;">⬤</span>
+
+  <div class="container">
+    <!-- <h2>Connect to a remote OrbitDB database</h2> -->
+    <form class="form">
+      <div class="form-group">
+        <label for="dbAddress">OrbitDB address </label>
+        <input type="text" class="form-control input-lg" id="dbAddress" value="">
       </div>
+      <button type="button" class="btn btn-primary" onclick="connectDB()">Connect database</button>
+      <button type="button" class="btn btn-primary" onclick="InitOrbitDB()">Create database</button>
+    </form>
+  </div>
+  
+  <hr>
 
-      <hr>
-
-      <div class="container">
-        <div class="row">
-          <div class="col-sm-12">
-            <!-- <h4>Patient EHR table</h4> -->
-            <table class="table table-striped" id="patientTable">
-              <tr id="trHeader">
-                <th>ID</th>
-                <th>Name</th>
-                <th>Gender</th>
-                <th>Age</th>
-                <th>Email</th>
-                <th>Delete</th>
-              </tr>
-              <tr id="trScaffold">
-                <td class="tdPatientID"></td>
-                <td class="tdName"></td>
-                <td class="tdGender"></td>
-                <td class="tdAge"></td>
-                <td class="tdEmail"></td>
-                <td class="tdDelete"><button type="button" class="btn btn-warning" style="display: none;">Delete</button></td>
-                <!-- <td class="tdCancel"><button type="button" class="btn btn-default" style="display: none;">Cancel</button></td> -->
-              </tr>
-            </table>
+  <div class="container">
+    <div class="row">
+      <div class="col-sm-12">
+          <div class="row">
+            <div class="col">
+              <label for="patientID"> ID </label>
+              <input type="text" class="form-control" id="patientID" value="">
+            </div>
+            <div class="col">
+              <label for="name">Name</label>
+              <input type="text" class="form-control" id="name" placeholder="">
+            </div>
+            <div class="col">
+              <label for="age">Age</label>
+              <input type="number" class="form-control" id="age" placeholder="">
+            </div>
+            <div class="col">
+              <label for="gender">Gender</label>
+              <select class="browser-default custom-select" id="gender">
+                <option value="Male">Male</option>
+                <option value="Femal">Female</option>
+              </select>
+            </div>
           </div>
-        </div>
       </div>
+    </div>
 
+    <div class="row">
+      <div class="col">
+        <label for="email">Email</label>
+        <input type="email" class="form-control" id="email" placeholder="">
+      </div>
+      <div class="col">
+        <label htmlFor="EHR" class="form-label">Medical record upload</label>
+        <input 
+          type="file" 
+          class="form-control"
+          onChange={uploadIPFS}
+        />
+      </div>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="uploadInfo()">Update</button>
+  </div>
 
+  <hr>
 
-
-    <script>
-      const bootstraps = [ '/dns6/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt', '/dns4/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt'];
-      let dbAddress = ''
-      let db;
-      let dbReady = false;
-      var lastBootstrap = 0; // used for tracking when we last attempted to bootstrap (likely to reconnect to a relay)
-      // This function executes when the page has finished loading.
-      $(document).ready(function() {
-        console.log("page is ready")
-        // Load IPFS and OrbitDB
-        // loadIPFS();
-        // InitOrbitDB();
-      });
-
-      function connectDB(){
-        dbAddress = document.getElementById("dbAddress").value;
-        loadIPFS()
-      }
-
-      async function dobootstrap(reconnect, ipfs){
-        now = new Date().getTime();
-        if (now-lastBootstrap < 60000) { // don't try to bootstrap again if we just tried within the last 60 seconds
-				  return;
-			  }
-        lastBootstrap = now;
-        for (i in bootstraps) {
-          if (reconnect) {
-            try {
-              await ipfs.swarm.disconnect(bootstraps[i]);
-            } catch (e) {
-              console.log(e);
-            }
-          } else {
-            await ipfs.bootstrap.add(bootstraps[i]);
-          }
-          await ipfs.swarm.connect(bootstraps[i]);
-					console.log("show me the peers:", ipfs.swarm.peers())
-			  }
-      }
-
-
-      async function InitOrbitDB(){
-        try{
-
-          ipfs1 = await Ipfs.create({
-            repo: 'dbOwner' + Math.random(), //random so we get a new peerid every time, useful for testing
-            start: true,
-            EXPERIMENTAL: {
-              pubsub: true,
-            },
-            relay:{
-              enabled: true,
-              hop: {
-                enabled: true
-              }
-            },
-            config: {
-              Bootstrap: [
-                '/dns6/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt',
-                '/dns4/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt'
-              ],
-              Addresses: {
-                Swarm: [ 
-                  '/dns4/star.thedisco.zone/tcp/9090/wss/p2p-webrtc-star',
-                  '/dns6/star.thedisco.zone/tcp/9090/wss/p2p-webrtc-star',
-                  '/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star/',
-                  '/dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star/',
-                  '/dns4/webrtc-star.discovery.libp2p.io/tcp/443/wss/p2p-webrtc-star/'
-                ]
-              },
-            }
-          })
-        
-        console.log("IPFS is ready, initialize OrbitDB")
-
-				// await dobootstrap(false, ipfs1);
-
-        const orbitdb = await OrbitDB.createInstance(ipfs1);
-
-        // const options = {
-        //   // Give write accessto everyone
-        //   accessController:{
-        //     write: ['*']
-        //   }
-        // }
-
-        // db0 = await orbitdb.keyvalue('testdb', options)
-        db0 = await orbitdb.keyvalue('newdb', {
-          accessController: {
-            type: 'orbitdb',
-            write:['*']
-          }
-        })
-        await db0.load()
-        let initdbAddress = db0.address.toString()
-        // document.getElementById("initdbaddress").innerHTML = initdbAddress;
-        $('#dbAddress').val(initdbAddress);
-        console.log(`database string: ${initdbAddress}`)
-
-        //put some initial data
-        await db0.put('peers', ['1', '2'])
-        await db0.put('1', {name: 'Tom Laner', gender: 'Male', age: 20, email: 'tl@gmail.com'})
-        await db0.put('2', {name: 'Jerry White', gender: 'Male', age: 30, email: 'jw@gmail.com'})
-
-        // React when the database is updated.
-        db0.events.on('replicated', () => {
-            console.log("Database replicated. Check for new data.")
-        })
-
-        } catch(err){
-          console.error(`Error in loading IPFS: `, err)
-        }
-      }
-
-      // This function resets the patient table to the way it was when the DOM
-      // was first loaded.
-      function resetTable() {
-        console.log('resetting the table.');
-        const patientTable = $('#patientTable');
-        const allRows = patientTable.find('tr');
-
-        // Loop through each row in the table.
-        for(var i=0; i < allRows.length; i++) {
-          const thisRow = $(allRows[i]);
-          const thisRowsId = thisRow.prop('id');
-
-          if(thisRowsId === "trHeader") continue;
-          if(thisRowsId === "trScaffold") continue;
-
-          thisRow.remove();
-        }
-      }
-
-      async function validateDb(){
-        // Exit if DB is not ready.
-        if(!dbReady) return false;  
-
-        // Retrieve data from the web forms.
-        const patient = $('#patientID').val();
-        if(patient === "") return false;
-
-        // Get the list of peers
-        let peers = db.get('peers')
-        // Handle a new DB.
-        if(!peers) {
-          peers = [patient]
-          await db.put('peers', peers);
-        } else{
-          if(peers.indexOf(patient) === -1){
-            // Add current patient to the list of peer
-            peers.push(patient);
-            await db.put('peers', peers);
-          }
-        }
-        return true;
-      }
-
-      async function uploadInfo(){
-        try{
-          const name = $('#name').val();
-          const gender = $('#gender').val();
-          let age = $('#age').val();
-          let email = $('#email').val();
-
-          const patientID = $('#patientID').val();
-
-          // Exit if the DB can not be validated.
-          const dbIsValid = await validateDb();
-          if(!dbIsValid) return;
-
-          const patientInfo = {
-            name: name,
-            gender: gender,
-            age: age,
-            email: email
-          }
-
-          await db.put(patientID, patientInfo)
-
-          resetTable();
-          showTable();
-
-        } catch(err) {
-          console.error(`Error in uploading infomation: `, err);
-          throw err;
-        }
-      }
-
-      async function deleteInfo(event) {
-        const thisBtn = $(this);
-        const handle = thisBtn.prop('data-handle');
-        var peerlist = db.get('peers');
-        // remove the handle from the peer list
-        peerlist = peerlist.filter(item => item !== handle);
-        await db.put('peers', peerlist)
-        await db.del(handle);
-        resetTable();
-        showTable();
-      }
-
-      async function showTable() {
-        try {
-          //console.log('showing patient table');
-
-          // Exit if the DB can not be validated.
-          // const dbIsValid = await validateDb();
-          // if(!dbIsValid) return;
-
-          // Get the list of peers.
-          let peers = db.get('peers')
-          // console.log("peers:", peers);
-          if(!peers) return; // Exit if DB has not peers.
-
-          const myID = $('#patientID').val();
-
-          // Get info for each peer.
-          for(var i = 0; i < peers.length; i++) {
-            const thisPeer = peers[i]
-
-            let patient = db.get(String(thisPeer))
-            if(!patient) patient = [];
-
-            //console.log(`Info belonging to ${thisPeer}: ${JSON.stringify(patient)}`)
-            // console.log("patientid!", Object.keys(patient).length)
-            // Loop through each patient.
-            // for(var j=0; j < Object.keys(patient).length; j++) {
-            //   const thisPatient = patient[j];
-              const thisRow = $('#trScaffold').clone();
-              thisRow.prop('id', ''); // Remove the ID from the clone.
-
-              thisRow.find('.tdPatientID').text(thisPeer);
-              
-              thisRow.find('.tdName').text(patient.name)
-              
-              if(patient.gender)
-                thisRow.find('.tdGender').text('Male')
-              else
-                thisRow.find('.tdGender').text('Female')
-
-              thisRow.find('.tdAge').text(patient.age)
-
-              thisRow.find('.tdEmail').text(patient.email)
-
-              // set up the delete button for every record
-              const deleteButton = thisRow.find('.tdDelete').find('button')
-              deleteButton.show();
-              deleteButton.prop('data-handle', thisPeer)
-              deleteButton.click(deleteInfo);
-              
-              $('#patientTable').append(thisRow)
-            // }
-          }
-
-        } catch(err) {
-          console.error(`Error in showTable(): `, err);
-          throw err;
-        }
-      }
-
-      async function loadIPFS(){
-        try{
-
-          ipfs2 = await Ipfs.create({
-            repo: 'ipfs-' + Math.random(), //random so we get a new peerid every time, useful for testing
-            start: true,
-            EXPERIMENTAL: {
-              pubsub: true,
-            },
-            relay:{
-              enabled: true,
-              hop: {
-                enabled: true
-              }
-            },
-            config: {
-              Bootstrap: [
-                '/dns6/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt',
-                '/dns4/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt'
-              ],
-              Addresses: {
-                Swarm: [ 
-                  '/dns4/star.thedisco.zone/tcp/9090/wss/p2p-webrtc-star',
-                  '/dns6/star.thedisco.zone/tcp/9090/wss/p2p-webrtc-star',
-                  '/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star/',
-                  '/dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star/',
-                  '/dns4/webrtc-star.discovery.libp2p.io/tcp/443/wss/p2p-webrtc-star/'
-                ]
-              },
-            }
-          })
-        
-				// await dobootstrap(false, ipfs2);
-        console.log(`IPFS is ready...Connecting to DB ${dbAddress} waiting...`)
-
-        orbitdb = await OrbitDB.createInstance(ipfs2);
-        db = await orbitdb.open(dbAddress, {
-          // If database doesn't exist, create it
-          create: true,
-          overwrite: true,
-          // Load only the local version of the database,
-          // don't load the latest from the network yet
-          localOnly: false,
-          type: 'keyvalue',
-          accessController:{
-            admin: ['*'],
-            write: ['*']
-          }
-        });
-        // db = await orbitdb.open(dbAddress)
-
-        db.events.on('ready', () => {
-          console.log("OrbitDB is ready!")
-        })
-
-        await db.load();
-        dbReady = true;
-        resetTable();
-        showTable();
-        
-        // React when the database is updated.
-        db.events.on('replicated', (address) => {
-          console.log(`Database replicated with peer ${address}. Check for new data.`);
-          resetTable();
-          showTable();
-
-        })
-
-        } catch(err){
-          console.error(`Error in loading IPFS: `, err)
-        }
-      }
-    </script>
-    
-    </body>
-
-</head>
+  <div class="container">
+    <div class="row">
+      <div class="col-sm-12">
+        <!-- <h4>Patient EHR table</h4> -->
+        <table class="table table-striped" id="patientTable">
+          <tr id="trHeader">
+            <th>ID</th>
+            <th>Name</th>
+            <th>Gender</th>
+            <th>Age</th>
+            <th>Email</th>
+            <th>Delete</th>
+          </tr>
+          <tr id="trScaffold">
+            <td class="tdPatientID"></td>
+            <td class="tdName"></td>
+            <td class="tdGender"></td>
+            <td class="tdAge"></td>
+            <td class="tdEmail"></td>
+            <td class="tdDelete"><button type="button" class="btn btn-warning" style="display: none;">Delete</button></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</body>
 
 </html>
