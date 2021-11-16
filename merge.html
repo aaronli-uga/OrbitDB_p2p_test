@@ -81,7 +81,7 @@
 	// Green means you're connected to the relay, even if it's via another peer; 
 	// Yellow means you're only seeing direct peers; 
 	// And red means you have no peers
-	function checkalive(){
+	function checkalive(ipfs){
 		now = new Date().getTime();
 		if (now - lastAlive >= 35000) {
 			if (now-lastPeer >= 35000) {
@@ -89,6 +89,7 @@
 				} else {
 					document.getElementById("status-ball").style.color = "yellow";
 			}
+      dobootstrap(true, ipfs)
 		} else{
 			document.getElementById("status-ball").style.color = "lime";
 		}
@@ -129,7 +130,6 @@
 		if (peer == me) {
 			return;
 		}
-
 		// get a list of peers
 		peers = await ipfs0.swarm.peers();
 		for (i in peers) {
@@ -139,7 +139,7 @@
 			}
 		}
 		// log the address to console as we're about to attempt a connection
-		console.log(addr);
+		console.log("Address:", addr);
 
 		// connection almost always fails the first time, but almost always succeeds the second time, so we do this:
 		try {
@@ -207,7 +207,7 @@
 		// publish and subscribe to keepalive to help keep the sockets open
 		await ipfs0.pubsub.subscribe(prefix+"keepalive");
 		setInterval(function(){sendmsg("1", prefix+"keepalive", ipfs0);}, 4000);
-		setInterval(checkalive, 1000);
+		setInterval(checkalive(ipfs0), 1000);
 
 		// process announcements over the relay network, and publish our own keep-alives to keep the channel alive.
 		await ipfs0.pubsub.subscribe("announce-circuit", owner_processAnnounce);
@@ -242,9 +242,8 @@
 
 		// React when the database is updated.
 		db0.events.on('replicated', () => {
-				console.log("Database replicated. Check for new data.")
+				console.log("Owner: Database replicated. Check for new data.")
 		})
-
 		} catch(err){
 			console.error(`Error in loading IPFS: `, err)
 		}
@@ -398,10 +397,6 @@
 					}
 				},
 				config: {
-					Bootstrap: [
-						'/dns6/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt',
-						'/dns4/ipfs.thedisco.zone/tcp/4430/wss/p2p/12D3KooWChhhfGdB9GJy1GbhghAAKCUR99oCymMEVS4eUcEy67nt'
-					],
 					Addresses: {
 						Swarm: [ 
 							'/dns4/star.thedisco.zone/tcp/9090/wss/p2p-webrtc-star',
